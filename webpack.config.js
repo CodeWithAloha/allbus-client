@@ -1,28 +1,62 @@
-var webpack = require('webpack'),
-    path = require('path'),
-    AnybarWebpackPlugin = require('anybar-webpack');
+var fs = require('fs');
+var path = require('path');
+var webpack = require('webpack');
 
-module.exports = {
-    watch: true,
-    entry: {
-      'index.ios.js': ['./main.ios.js']
-    },
-    module: {
-        loaders: [
-            { test: /\.(jsx|es6)$/, exclude: /node_modules/, loaders: ['babel-loader?optional=runtime'] }
-        ]
-    },
-    output: {
-        path: path.join(__dirname, '/'),
-        filename: 'index.ios.js',
-        libraryTarget: 'commonjs'
-    },
-    externals: [require('./ignore-modules')],
-    resolve: {
-        extensions: ['', '.js', '.jsx', '.es6']
-    },
-    plugins: [
-        new webpack.NoErrorsPlugin(),
-        new AnybarWebpackPlugin()
-    ]
+var config = {
+
+  debug: true,
+
+  devtool: 'source-map',
+
+  entry: {
+    'index.ios': ['./src/main.js'],
+  },
+
+  output: {
+    path: path.resolve(__dirname, 'build'),
+    filename: '[name].js',
+  },
+
+  module: {
+    loaders: [{
+      test: /\.js$/,
+      exclude: /node_modules/,
+      loader: 'babel',
+      query: {
+        stage: 0,
+        plugins: []
+      }
+    }]
+  },
+
+  plugins: [],
+
 };
+
+// Hot loader
+if (process.env.HOT) {
+  config.devtool = 'eval'; // Speed up incremental builds
+  config.entry['index.ios'].unshift('react-native-webpack-server/hot/entry');
+  config.entry['index.ios'].unshift('webpack/hot/only-dev-server');
+  config.entry['index.ios'].unshift('webpack-dev-server/client?http://localhost:8082');
+  config.output.publicPath = 'http://localhost:8082/';
+  config.plugins.unshift(new webpack.HotModuleReplacementPlugin());
+  config.module.loaders[0].query.plugins.push('react-transform');
+  config.module.loaders[0].query.extra = {
+    'react-transform': {
+      transforms: [{
+        transform: 'react-transform-hmr',
+        imports: ['react-native'],
+        locals: ['module']
+      }]
+    }
+  };
+}
+
+// Production config
+if (process.env.NODE_ENV === 'production') {
+  config.plugins.push(new webpack.optimize.OccurrenceOrderPlugin());
+  config.plugins.push(new webpack.optimize.UglifyJsPlugin());
+}
+
+module.exports = config;
